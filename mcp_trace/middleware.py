@@ -4,8 +4,8 @@ from datetime import datetime, timezone
 
 from fastmcp.server.middleware import MiddlewareContext, CallNext
 from fastmcp.server.context import Context
-from fastmcp.server.dependencies import get_http_request, get_http_headers
 from mcp_trace.adapters.local import LocalTraceAdapter
+from mcp_trace.adapters.contexa import ContexaTraceAdapter
 
 # Try importing TextContent to parse response content more cleanly
 try:
@@ -25,13 +25,21 @@ class TraceMiddleware:
     Logging fields are configurable via the `log_fields` dictionary.
     """
 
-    def __init__(self, adapter, log_fields: Optional[dict[str, bool]] = None):
+    def __init__(self, adapter=None, log_fields: Optional[dict[str, bool]] = None):
         """
         Args:
-            adapter: Logger/exporter with an `export(dict)` method (e.g., LocalTraceAdapter).
+            adapter: Logger/exporter with an `export(dict)` method (e.g., ContexaTraceAdapter by default).
             log_fields: Dict that controls which fields are logged.
                         Example: {'tool_arguments': True, 'client_id': False}
         """
+        if adapter is None:
+            try:
+                adapter = ContexaTraceAdapter()
+            except Exception as e:
+                raise RuntimeError(
+                    "ContexaTraceAdapter is the default, but could not be initialized. "
+                    "Set CONTEXA_API_KEY and CONTEXA_SERVER_ID env vars, or pass an adapter explicitly."
+                ) from e
         self.adapter = adapter
         self.log_fields = log_fields or {}
 
@@ -85,7 +93,8 @@ class TraceMiddleware:
             "timestamp": timestamp.isoformat(),
             "session_id": self._session_id(context),
             "request_id": getattr(fastmcp_ctx, "request_id", None),
-            "client_id": getattr(fastmcp_ctx, "client_id", None),
+            "client_id": self.get_client_info(context),
+            "client_version": self.get_client_version(context),
             "duration": duration,
         }
 
@@ -162,32 +171,47 @@ class TraceMiddleware:
 
     def _session_id(self, context: MiddlewareContext) -> Optional[str]:
         """
-        Extracts session ID in priority order:
+        Extracts the session ID using the following priority:
         1. `context.fastmcp_context.session_id`
         2. `mcp-session-id` from HTTP headers (case-insensitive)
         3. `mcp-session-id` from raw request headers
+        4. `mcp-session-id` from query parameters
         Returns None if not found.
         """
         target_header = HEADER_NAME.lower()
 
-        # 1. From fastmcp_context
+        # 1. From context's fastmcp_context (highest priority)
         session_id = getattr(context.fastmcp_context, "session_id", None)
         if session_id:
             return session_id
 
-        # 2. From high-level HTTP headers
+        # 2. From raw request headers and query params (access request only once)
         try:
-            headers = {k.lower(): v for k, v in get_http_headers(include_all=True).items()}
+            request = context.fastmcp_context.request_context.request
+            headers = {k.lower(): v for k, v in request.headers.items()}
             if target_header in headers:
                 return headers[target_header]
-        except RuntimeError:
-            pass  # Likely not in an HTTP request context
 
-        # 3. From raw request object (e.g., Starlette/FastAPI Request)
-        try:
-            request_headers = {
-                k.lower(): v for k, v in get_http_request().headers.items()
-            }
-            return request_headers.get(target_header)
+            # 3. From query parameters (last priority)
+            return request.query_params.get('session_id')
         except (AttributeError, RuntimeError):
             return None
+        
+    def get_client_info(self, context: MiddlewareContext) -> Optional[str]:
+        """
+        Extracts client information from the context.
+        """
+        try:
+            session = context.fastmcp_context.request_context.session
+            client_info = session.client_params.clientInfo
+            return client_info.name
+        except (AttributeError, RuntimeError):
+            return None
+
+    def get_client_version(self, context: MiddlewareContext) -> Optional[str]:
+        """
+        Extracts client version from the context.
+        """
+        session = context.fastmcp_context.request_context.session
+        client_info = session.client_params.clientInfo
+        return client_info.version

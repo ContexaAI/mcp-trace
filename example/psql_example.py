@@ -1,10 +1,10 @@
 from fastmcp import FastMCP
 from mcp_trace.middleware import TraceMiddleware
-from mcp_trace.adapters.local import LocalTraceAdapter
+from mcp_trace.adapters.psql import PostgresTraceAdapter
 
-mcp = FastMCP("My MCP Server", stateless_http=True)
+mcp = FastMCP("My MCP Server")
 
-trace_adapter = LocalTraceAdapter("trace.log")
+trace_adapter = PostgresTraceAdapter(dsn="postgresql://akshaygalande@127.0.0.1/aiinfra")
 trace_middleware = TraceMiddleware(adapter=trace_adapter)
 
 mcp.add_middleware(trace_middleware)
@@ -27,4 +27,4 @@ def get_user_by_id(id: int) -> str:
 
 
 if __name__ == "__main__":
-    mcp.run(transport="http")
+    mcp.run(transport="sse")

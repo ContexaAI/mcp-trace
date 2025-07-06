@@ -18,6 +18,7 @@
 - [Features](#features)
 - [Quickstart](#quickstart)
 - [Adapters](#adapters)
+  - [Contexa Adapter](#contexa-adapter)
   - [Local File Adapter](#local-file-adapter)
   - [PostgreSQL Adapter](#postgresql-adapter)
   - [Supabase Adapter](#supabase-adapter)
@@ -65,6 +66,44 @@ mcp.add_middleware(trace_middleware)
 ---
 
 ## Adapters
+
+### Contexa Adapter
+
+Send traces to [Contexa](https://contexaai.com/) for cloud-based trace storage and analytics.
+
+**Requirements:**
+
+- Contexa API key (`CONTEXA_API_KEY`)
+- Contexa Server ID (`CONTEXA_SERVER_ID`)
+- [requests](https://pypi.org/project/requests/)
+
+**Usage:**
+
+You can provide your API key and server ID as environment variables or directly as arguments.
+
+```python
+from mcp_trace.middleware import TraceMiddleware
+from mcp_trace.adapters.contexa import ContexaTraceAdapter
+
+# Option 1: Set environment variables
+# import os
+# os.environ["CONTEXA_API_KEY"] = "your-api-key"
+# os.environ["CONTEXA_SERVER_ID"] = "your-server-id"
+# contexa_adapter = ContexaTraceAdapter()
+
+# Option 2: Pass directly
+contexa_adapter = ContexaTraceAdapter(
+    api_key="your-api-key",
+    server_id="your-server-id"
+)
+
+trace_middleware = TraceMiddleware(adapter=contexa_adapter)
+mcp.add_middleware(trace_middleware)
+
+# On shutdown, ensure all events are sent:
+contexa_adapter.flush(timeout=5)
+contexa_adapter.shutdown()
+```
 
 ### Local File Adapter
 
