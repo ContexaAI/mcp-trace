@@ -1,9 +1,8 @@
 from fastmcp import FastMCP
 from mcp_trace.middleware import TraceMiddleware
 from mcp_trace.adapters.local import LocalTraceAdapter
-from fastmcp.server.context import Context
 
-mcp = FastMCP("My MCP Server")
+mcp = FastMCP("My MCP Server", stateless_http=True)
 
 trace_adapter = LocalTraceAdapter("trace.log")
 trace_middleware = TraceMiddleware(adapter=trace_adapter)
@@ -28,4 +27,4 @@ def get_user_by_id(id: int) -> str:
 
 
 if __name__ == "__main__":
-    mcp.run(transport="http", middleware=[trace_middleware])
+    mcp.run(transport="http")

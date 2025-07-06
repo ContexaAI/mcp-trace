@@ -26,8 +26,6 @@ class PostgresTraceAdapter:
 
     def export(self, trace_data: dict):
         session_id = trace_data.get("session_id")
-        if not session_id:
-            raise ValueError("session_id must be present and not null in trace_data")
         with self._conn.cursor() as cur:
             cur.execute(
                 f"""

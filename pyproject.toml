@@ -25,4 +25,7 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Libraries :: Python Modules"
-] 
+]
+
+[tool.setuptools.packages.find]
+include = ["mcp_trace*"] 
