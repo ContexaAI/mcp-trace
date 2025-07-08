@@ -11,11 +11,10 @@ CREATE TABLE trace_events (
     method TEXT,
     session_id TEXT,
     client_id TEXT,
-    request_id TEXT,
-    tool_name TEXT,
-    tool_arguments JSONB,
-    tool_response TEXT,
-    tool_response_structured JSONB
+    entity_name TEXT,
+    entity_params JSONB,
+    entity_response JSONB,
+    error TEXT
 );
 
 You may add indexes or additional columns as needed for your use case.
@@ -49,16 +48,15 @@ class PostgresTraceAdapter:
             method = trace_data.get("method")
             session_id = trace_data.get("session_id")
             client_id = trace_data.get("client_id")
-            request_id = trace_data.get("request_id")
-            tool_name = trace_data.get("tool_name")
-            tool_arguments = trace_data.get("tool_arguments")
-            tool_response = trace_data.get("tool_response")
-            tool_response_structured = trace_data.get("tool_response_structured")
+            entity_name = trace_data.get("entity_name")
+            entity_params = trace_data.get("entity_params")
+            entity_response = trace_data.get("entity_response")
+            error = trace_data.get("error")
             with self._conn.cursor() as cur:
                 cur.execute(
                     f"""
                     INSERT INTO {self.table} (
-                        id, timestamp, duration, type, method, session_id, client_id, request_id, tool_name, tool_arguments, tool_response, tool_response_structured
+                        id, timestamp, duration, type, method, session_id, client_id, entity_name, entity_params, entity_response, error
                     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     [
@@ -69,11 +67,10 @@ class PostgresTraceAdapter:
                         method,
                         session_id,
                         client_id,
-                        request_id,
-                        tool_name,
-                        json.dumps(tool_arguments) if tool_arguments is not None else None,
-                        tool_response,
-                        json.dumps(tool_response_structured) if tool_response_structured is not None else None
+                        entity_name,
+                        json.dumps(entity_params) if entity_params is not None else None,
+                        json.dumps(entity_response) if entity_response is not None else None,
+                        error
                     ]
                 )
         except Exception as e:

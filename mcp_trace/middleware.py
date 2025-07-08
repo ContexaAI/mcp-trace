@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from fastmcp.server.middleware import MiddlewareContext, CallNext
 from fastmcp.server.context import Context
 from mcp_trace.adapters.file_adapter import FileTraceAdapter
-from mcp_trace.adapters.contexaai_adapter import ContexaTraceAdapter
+from mcp_trace.adapters.console_adapter import ConsoleTraceAdapter
 
 # Try importing TextContent to parse response content more cleanly
 try:
@@ -34,10 +34,10 @@ class TraceMiddleware:
         """
         if adapter is None:
             try:
-                adapter = ContexaTraceAdapter()
+                adapter = ConsoleTraceAdapter()
             except Exception as e:
                 raise RuntimeError(
-                    "ContexaTraceAdapter is the default, but could not be initialized. "
+                    "ConsoleTraceAdapter is the default, but could not be initialized. "
                     "Set CONTEXA_API_KEY and CONTEXA_SERVER_ID env vars, or pass an adapter explicitly."
                 ) from e
         self.adapter = adapter
@@ -84,7 +84,6 @@ class TraceMiddleware:
         Includes type, method, session/client/request ID, and duration.
         Only includes fields allowed by `log_fields`.
         """
-        fastmcp_ctx: Optional[Context] = context.fastmcp_context
         timestamp = getattr(context, "timestamp", datetime.now(timezone.utc))
 
         base_fields = {
