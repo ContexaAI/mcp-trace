@@ -1,6 +1,6 @@
 from fastmcp import FastMCP
 from mcp_trace.middleware import TraceMiddleware
-from mcp_trace.adapters.psql import PostgresTraceAdapter
+from mcp_trace.adapters.postgres_adapter import PostgresTraceAdapter
 
 mcp = FastMCP("My MCP Server")
 

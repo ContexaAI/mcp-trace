@@ -1,6 +1,6 @@
 from fastmcp import FastMCP
 from mcp_trace.middleware import TraceMiddleware
-from mcp_trace.adapters.supabase import SupabasePostgresTraceAdapter
+from mcp_trace.adapters.supabase_adapter import SupabasePostgresTraceAdapter
 from supabase import create_client
 
 mcp = FastMCP("My MCP Server")

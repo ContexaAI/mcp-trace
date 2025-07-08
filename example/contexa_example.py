@@ -1,6 +1,6 @@
 from fastmcp import FastMCP
 from mcp_trace.middleware import TraceMiddleware
-from mcp_trace.adapters.contexa import ContexaTraceAdapter
+from mcp_trace.adapters.contexaai_adapter import ContexaTraceAdapter
 import os
 
 # Set these in your environment or pass as arguments below
@@ -12,7 +12,7 @@ mcp = FastMCP("MCP Server with Contexa Trace")
 # You can pass api_key/server_id as arguments, or rely on env vars
 contexa_adapter = ContexaTraceAdapter(
     api_key="1873c789fdc8cec9871b7345f5e8a2a8982bd4a54a0cd0817bf778049d010196",
-    server_id="Akshay"
+    server_id="6F8tjNTkr6ZuV62VXgh0C"
 )
 trace_middleware = TraceMiddleware(adapter=contexa_adapter)
 

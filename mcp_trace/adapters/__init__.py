@@ -1,4 +1,5 @@
 # mcp_trace.adapters package 
-from .contexa import ContexaTraceAdapter 
-from .supabase import SupabasePostgresTraceAdapter
-from .psql import PostgresTraceAdapter
+from .contexaai_adapter import ContexaTraceAdapter 
+from .supabase_adapter import SupabasePostgresTraceAdapter
+from .postgres_adapter import PostgresTraceAdapter
+from .console_adapter import ConsoleTraceAdapter

@@ -4,8 +4,8 @@ from datetime import datetime, timezone
 
 from fastmcp.server.middleware import MiddlewareContext, CallNext
 from fastmcp.server.context import Context
-from mcp_trace.adapters.local import LocalTraceAdapter
-from mcp_trace.adapters.contexa import ContexaTraceAdapter
+from mcp_trace.adapters.file_adapter import FileTraceAdapter
+from mcp_trace.adapters.contexaai_adapter import ContexaTraceAdapter
 
 # Try importing TextContent to parse response content more cleanly
 try:
@@ -63,10 +63,10 @@ class TraceMiddleware:
         duration = (time.time() - start_time) * 1000  # ms
 
         # Collect base trace data
-        trace_data = self._extract_base_trace_data(context, duration)
+        trace_data = self._extract_base_trace_data(context, duration, response)
 
         # Don't log if session ID is missing (unless using local debug adapter)
-        if not isinstance(self.adapter, LocalTraceAdapter) and not trace_data.get("session_id"):
+        if not isinstance(self.adapter, FileTraceAdapter) and not trace_data.get("session_id"):
             return response
 
         # Add tool-specific fields if it's a tool call
@@ -78,7 +78,7 @@ class TraceMiddleware:
 
         return response
 
-    def _extract_base_trace_data(self, context: MiddlewareContext, duration: float) -> dict[str, Any]:
+    def _extract_base_trace_data(self, context: MiddlewareContext, duration: float, response: Any = None) -> dict[str, Any]:
         """
         Extracts general-purpose trace metadata for any request.
         Includes type, method, session/client/request ID, and duration.
@@ -91,8 +91,7 @@ class TraceMiddleware:
             "type": getattr(context, "type", None),
             "method": getattr(context, "method", None),
             "timestamp": timestamp.isoformat(),
-            "session_id": self._session_id(context),
-            "request_id": getattr(fastmcp_ctx, "request_id", None),
+            "session_id": self._session_id(context, response),
             "client_id": self.get_client_info(context),
             "client_version": self.get_client_version(context),
             "duration": duration,
@@ -123,11 +122,11 @@ class TraceMiddleware:
 
         # Include tool name and arguments if available
         if request_msg:
-            if self._should_log("tool_name") and hasattr(request_msg, "name"):
-                trace["tool_name"] = getattr(request_msg, "name", None)
+            if self._should_log("entity_name") and hasattr(request_msg, "name"):
+                trace["entity_name"] = getattr(request_msg, "name", None)
 
-            if self._should_log("tool_arguments") and hasattr(request_msg, "arguments"):
-                trace["tool_arguments"] = getattr(request_msg, "arguments", None)
+            if self._should_log("entity_params") and hasattr(request_msg, "arguments"):
+                trace["entity_params"] = getattr(request_msg, "arguments", None)
 
         # Extract plain-text output from the tool response
         if self._should_log("tool_response"):
@@ -136,10 +135,15 @@ class TraceMiddleware:
                 trace["tool_response"] = response_text
 
         # Extract structured tool output (e.g., JSON)
-        if self._should_log("tool_response_structured"):
+        if self._should_log("entity_response"):
             structured = self._extract_structured_response(response)
             if structured:
-                trace["tool_response_structured"] = structured
+                trace["entity_response"] = structured
+
+        # Extract error if present
+        error = getattr(response, "error", None) or getattr(context, "error", None)
+        if self._should_log("error") and error:
+            trace["error"] = error
 
         return trace
 
@@ -169,13 +173,14 @@ class TraceMiddleware:
             getattr(response, "structuredContent", None)
         )
 
-    def _session_id(self, context: MiddlewareContext) -> Optional[str]:
+    def _session_id(self, context: MiddlewareContext, response: Any = None) -> Optional[str]:
         """
         Extracts the session ID using the following priority:
         1. `context.fastmcp_context.session_id`
         2. `mcp-session-id` from HTTP headers (case-insensitive)
         3. `mcp-session-id` from raw request headers
         4. `mcp-session-id` from query parameters
+        5. `mcp-session-id` from response headers (if response is provided)
         Returns None if not found.
         """
         target_header = HEADER_NAME.lower()
@@ -193,9 +198,19 @@ class TraceMiddleware:
                 return headers[target_header]
 
             # 3. From query parameters (last priority)
-            return request.query_params.get('session_id')
+            session_id = request.query_params.get('session_id')
+            if session_id:
+                return session_id
         except (AttributeError, RuntimeError):
-            return None
+            pass
+
+        # 4. From response headers if available
+        if response is not None:
+            response_headers = getattr(response, "headers", None)
+            if response_headers and target_header in response_headers:
+                return response_headers[target_header]
+
+        return None
         
     def get_client_info(self, context: MiddlewareContext) -> Optional[str]:
         """

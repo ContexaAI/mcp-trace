@@ -1,11 +1,10 @@
 from fastmcp import FastMCP
 from mcp_trace.middleware import TraceMiddleware
-from mcp_trace.adapters.local import LocalTraceAdapter
-from mcp_trace.adapters.contexa import ContexaTraceAdapter
+from mcp_trace.adapters.file_adapter import FileTraceAdapter
 
 mcp = FastMCP("My MCP Server")
 
-trace_adapter = LocalTraceAdapter("trace.log")
+trace_adapter = FileTraceAdapter("trace.log")
 trace_middleware = TraceMiddleware(adapter=trace_adapter)
 
 mcp.add_middleware(trace_middleware)
