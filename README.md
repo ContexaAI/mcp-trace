@@ -9,7 +9,7 @@
 [![Python Version](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
 
 > **Flexible, pluggable tracing middleware for [FastMCP](https://github.com/jlowin/fastmcp) servers.**
-> Log every request, tool call, and response to local files, PostgreSQL, Supabase, or your own backend—with full control over what gets logged.
+> Log every request, tool call, and response to local files, PostgreSQL, Supabase, your own backend, or the console—with full control over what gets logged.
 
 ---
 
@@ -19,7 +19,8 @@
 - [Quickstart](#quickstart)
 - [Adapters](#adapters)
   - [Contexa Adapter](#contexa-adapter)
-  - [Local File Adapter](#local-file-adapter)
+  - [File Adapter](#file-adapter)
+  - [Console Adapter](#console-adapter)
   - [PostgreSQL Adapter](#postgresql-adapter)
   - [Supabase Adapter](#supabase-adapter)
   - [Multi-Adapter Example](#multi-adapter-example)
@@ -34,7 +35,7 @@
 ## Features
 
 - 📦 **Plug-and-play**: Add tracing to any FastMCP server in seconds
-- 🗃️ **Pluggable adapters**: Log to file, PostgreSQL, Supabase, or your own
+- 🗃️ **Pluggable adapters**: Log to file, PostgreSQL, Supabase, console, or your own
 - 🛠️ **Configurable logging**: Enable/disable fields (tool args, responses, client ID, etc.)
 - 🧩 **Composable**: Use multiple adapters at once
 - 📝 **Schema-first**: All traces stored as JSON for easy querying
@@ -50,16 +51,27 @@
 pip install mcp-trace
 ```
 
-### Minimal Example
+### Minimal Example (File Adapter)
 
 ```python
 from mcp_trace.middleware import TraceMiddleware
-from mcp_trace.adapters.local import LocalTraceAdapter
+from mcp_trace.adapters.file_adapter import FileTraceAdapter
 
-trace_adapter = LocalTraceAdapter("trace.log")
+trace_adapter = FileTraceAdapter("trace.log")
 trace_middleware = TraceMiddleware(adapter=trace_adapter)
 
 # Add to your FastMCP server
+mcp.add_middleware(trace_middleware)
+```
+
+### Console Adapter Example
+
+```python
+from mcp_trace.middleware import TraceMiddleware
+from mcp_trace.adapters.console_adapter import ConsoleTraceAdapter
+
+trace_adapter = ConsoleTraceAdapter()
+trace_middleware = TraceMiddleware(adapter=trace_adapter)
 mcp.add_middleware(trace_middleware)
 ```
 
@@ -83,7 +95,7 @@ You can provide your API key and server ID as environment variables or directly 
 
 ```python
 from mcp_trace.middleware import TraceMiddleware
-from mcp_trace.adapters.contexa import ContexaTraceAdapter
+from mcp_trace.adapters.contexaai_adapter import ContexaTraceAdapter
 
 # Option 1: Set environment variables
 # import os
@@ -105,13 +117,22 @@ contexa_adapter.flush(timeout=5)
 contexa_adapter.shutdown()
 ```
 
-### Local File Adapter
+### File Adapter
 
 Logs each trace as a JSON line to a file.
 
 ```python
-from mcp_trace.adapters.local import LocalTraceAdapter
-trace_adapter = LocalTraceAdapter("trace.log")
+from mcp_trace.adapters.file_adapter import FileTraceAdapter
+trace_adapter = FileTraceAdapter("trace.log")
+```
+
+### Console Adapter
+
+Prints each trace to the console in a colorized, readable format.
+
+```python
+from mcp_trace.adapters.console_adapter import ConsoleTraceAdapter
+trace_adapter = ConsoleTraceAdapter()
 ```
 
 ### PostgreSQL Adapter
@@ -132,7 +153,7 @@ CREATE TABLE mcp_traces (
 **Usage:**
 
 ```python
-from mcp_trace.adapters.psql import PostgresTraceAdapter
+from mcp_trace.adapters.postgres_adapter import PostgresTraceAdapter
 psql_adapter = PostgresTraceAdapter(dsn="postgresql://user:pass@host:port/dbname")
 ```
 
@@ -152,7 +173,7 @@ pip install supabase
 
 ```python
 from supabase import create_client
-from mcp_trace.adapters.supabase import SupabasePostgresTraceAdapter
+from mcp_trace.adapters.supabase_adapter import SupabasePostgresTraceAdapter
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 supabase_adapter = SupabasePostgresTraceAdapter(supabase)
 ```
@@ -169,10 +190,11 @@ class MultiAdapter:
         for adapter in self.adapters:
             adapter.export(trace_data)
 
-local_adapter = LocalTraceAdapter("trace.log")
+file_adapter = FileTraceAdapter("trace.log")
 psql_adapter = PostgresTraceAdapter(dsn="postgresql://user:pass@host:port/dbname")
 supabase_adapter = SupabasePostgresTraceAdapter(supabase)
-trace_middleware = TraceMiddleware(adapter=MultiAdapter(local_adapter, psql_adapter, supabase_adapter))
+console_adapter = ConsoleTraceAdapter()
+trace_middleware = TraceMiddleware(adapter=MultiAdapter(file_adapter, psql_adapter, supabase_adapter, console_adapter))
 mcp.add_middleware(trace_middleware)
 ```
 
@@ -184,19 +206,19 @@ Control exactly which fields are logged by passing a `log_fields` dictionary to 
 
 **Available fields:**
 
-- `type`, `method`, `timestamp`, `session_id`, `request_id`, `client_id`, `duration`
-- `tool_name`, `tool_arguments`, `tool_response`, `tool_response_structured`
+- `type`, `method`, `timestamp`, `session_id`, `client_id`, `client_version`, `duration`
+- `entity_name`, `entity_params`, `entity_response`, `tool_response`, `error`
 
-**Example: Only log tool name and response, hide arguments and client ID:**
+**Example: Only log entity name and response, hide params and client ID:**
 
 ```python
 trace_middleware = TraceMiddleware(
     adapter=trace_adapter,
     log_fields={
-        "tool_name": True,
-        "tool_response": True,
-        "tool_arguments": False,  # disables tool arguments
-        "client_id": False,       # disables client_id
+        "entity_name": True,
+        "entity_response": True,
+        "entity_params": False,  # disables tool arguments
+        "client_id": False,      # disables client_id
         # ...add more as needed
     }
 )
