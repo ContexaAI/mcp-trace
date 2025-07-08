@@ -28,15 +28,15 @@ class ConsoleTraceAdapter(TraceAdapter):
         log("Duration", f"{trace_data.get('duration')} ms" if trace_data.get("duration") is not None else None)
         log("Entity Name", trace_data.get("entity_name"))
 
-        entity_params = trace_data.get("entity_params")
+        entity_params = trace_data.get("arguments")
         if entity_params is not None:
-            print(f"{YELLOW}Entity Params    :{RESET}")
+            print(f"{YELLOW}Arguments    :{RESET}")
             print(json.dumps(entity_params, indent=2, ensure_ascii=False))
 
-        entity_response = trace_data.get("entity_response")
-        if entity_response is not None:
-            print(f"{YELLOW}Entity Response  :{RESET}")
-            print(json.dumps(entity_response, indent=2, ensure_ascii=False))
+        response = trace_data.get("response")
+        if response is not None:
+            print(f"{YELLOW}Response  :{RESET}")
+            print(json.dumps(response, indent=2, ensure_ascii=False))
 
         error = trace_data.get("error")
         if error:
