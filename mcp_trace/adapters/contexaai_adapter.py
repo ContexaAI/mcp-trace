@@ -27,7 +27,7 @@ class ContexaTraceAdapter(TraceAdapter):
         retry_delay: float = 2.0,
         daemon: bool = True,
     ):
-        self.api_url = os.getenv("CONTEXA_API_URL", "http://localhost:4000/v1/trace/ingest")
+        self.api_url = os.getenv("CONTEXA_API_URL", "https://api.contexaai.com/v1/trace/ingest")
         self.api_key = api_key or os.getenv("CONTEXA_API_KEY")
         self.server_id = server_id or os.getenv("CONTEXA_SERVER_ID")
 
