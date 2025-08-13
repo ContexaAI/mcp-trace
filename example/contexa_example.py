@@ -11,8 +11,8 @@ mcp = FastMCP("MCP Server with Contexa Trace")
 
 # You can pass api_key/server_id as arguments, or rely on env vars
 contexa_adapter = ContexaTraceAdapter(
-    api_key="1873c789fdc8cec9871b7345f5e8a2a8982bd4a54a0cd0817bf778049d010196",
-    server_id="6F8tjNTkr6ZuV62VXgh0C"
+    api_key="ac28024f69a584a9e3bf249492d8494264a630fc0d2d91297cf96d6c0768cf1a",
+    server_id="4n0lNwENz_PRUHUfPIXCM"
 )
 trace_middleware = TraceMiddleware(adapter=contexa_adapter)
 

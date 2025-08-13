@@ -128,6 +128,8 @@ class TraceMiddleware(Middleware):
                 extra["entity_name"] = getattr(msg, "name", None)
             if hasattr(msg, "arguments"):
                 extra["arguments"] = getattr(msg, "arguments", None)
+            if result is not None:
+                extra["response"] = self._extract_structured_response(result) or self._extract_text_response(result) 
         self.build_trace_data(context, extra=extra, start_time=start_time, end_time=end_time)
         return result
 
