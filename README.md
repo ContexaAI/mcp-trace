@@ -9,7 +9,7 @@
 [![Python Version](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
 
 > **Flexible, pluggable tracing middleware for [FastMCP](https://github.com/jlowin/fastmcp) servers.**
-> Log every request, tool call, and response to local files, PostgreSQL, Supabase, your own backend, or the console—with full control over what gets logged.
+> Log every request, tool call, and response to local files, PostgreSQL, Supabase, Contexa, your own backend, or the console—with full control over what gets logged, including user identification and PII redaction.
 
 ---
 
@@ -24,7 +24,10 @@
   - [PostgreSQL Adapter](#postgresql-adapter)
   - [Supabase Adapter](#supabase-adapter)
   - [Multi-Adapter Example](#multi-adapter-example)
-- [Configurable Logging](#configurable-logging)
+- [Advanced Features](#advanced-features)
+  - [User Identification](#user-identification)
+  - [PII Redaction](#pii-redaction)
+  - [Trace Data Fields](#trace-data-fields)
 - [Requirements](#requirements)
 - [Contributing](#contributing)
 - [License](#license)
@@ -35,11 +38,12 @@
 ## Features
 
 - 📦 **Plug-and-play**: Add tracing to any FastMCP server in seconds
-- 🗃️ **Pluggable adapters**: Log to file, PostgreSQL, Supabase, console, or your own
-- 🛠️ **Configurable logging**: Enable/disable fields (tool args, responses, client ID, etc.)
+- 🗃️ **Pluggable adapters**: Log to file, PostgreSQL, Supabase, Contexa, console, or your own
 - 🧩 **Composable**: Use multiple adapters at once
 - 📝 **Schema-first**: All traces stored as JSON for easy querying
-- 🔒 **Privacy-aware**: Control exactly what gets logged
+- 🔒 **Privacy-aware**: Built-in PII redaction support
+- 👤 **User identification**: Extract and log user information from requests
+- 🌐 **Comprehensive data**: Captures request/response, client info, IP addresses, errors, and more
 
 ---
 
@@ -54,25 +58,101 @@ pip install mcp-trace
 ### Minimal Example (File Adapter)
 
 ```python
-from mcp_trace.middleware import TraceMiddleware
-from mcp_trace.adapters.file_adapter import FileTraceAdapter
+from mcp.server import FastMCP
+from mcp_trace import TraceMiddleware, FileAdapter
 
-trace_adapter = FileTraceAdapter("trace.log")
-trace_middleware = TraceMiddleware(adapter=trace_adapter)
+mcp = FastMCP("My MCP Server")
 
-# Add to your FastMCP server
-mcp.add_middleware(trace_middleware)
+trace_adapter = FileAdapter("trace.log")
+trace_middleware = TraceMiddleware(adapter=trace_adapter).init(mcp)
+
+@mcp.tool()
+def hello(name: str) -> str:
+    return f"Hello, {name}!"
+
+if __name__ == "__main__":
+    mcp.run(transport="streamable-http")
 ```
 
 ### Console Adapter Example
 
 ```python
-from mcp_trace.middleware import TraceMiddleware
-from mcp_trace.adapters.console_adapter import ConsoleTraceAdapter
+from mcp.server import FastMCP
+from mcp_trace import TraceMiddleware, ConsoleAdapter
 
-trace_adapter = ConsoleTraceAdapter()
-trace_middleware = TraceMiddleware(adapter=trace_adapter)
-mcp.add_middleware(trace_middleware)
+mcp = FastMCP("My MCP Server")
+
+trace_adapter = ConsoleAdapter()
+trace_middleware = TraceMiddleware(adapter=trace_adapter).init(mcp)
+
+@mcp.tool()
+def hello(name: str) -> str:
+    return f"Hello, {name}!"
+
+if __name__ == "__main__":
+    mcp.run(transport="streamable-http")
+```
+
+### Advanced Example (User Identification & PII Redaction)
+
+```python
+from mcp.server import FastMCP
+from mcp_trace import TraceMiddleware, ConsoleAdapter
+
+def identify_user(context) -> dict:
+    """Identify user from context (e.g., from headers, session, etc.)."""
+    try:
+        request_context = getattr(context, "request_context", None)
+        if request_context:
+            request = getattr(request_context, "request", None)
+            if request:
+                headers = getattr(request, "headers", {}) or {}
+                headers_lower = {k.lower(): v for k, v in headers.items()}
+                
+                user_id = headers_lower.get("x-user-id")
+                user_name = headers_lower.get("x-user-name")
+                user_email = headers_lower.get("x-user-email")
+                
+                if user_id:
+                    return {
+                        "user_id": user_id,
+                        "user_name": user_name,
+                        "user_email": user_email,
+                    }
+    except Exception:
+        pass
+    return None
+
+def redact_pii(trace_data: dict) -> dict:
+    """Redact PII from trace data before exporting."""
+    # Redact user email
+    if "user_email" in trace_data and trace_data["user_email"]:
+        trace_data["user_email"] = "***REDACTED***"
+    
+    # Redact sensitive data from request/response
+    if "request" in trace_data and isinstance(trace_data["request"], dict):
+        if "password" in trace_data["request"]:
+            trace_data["request"]["password"] = "***REDACTED***"
+        if "api_key" in trace_data["request"]:
+            trace_data["request"]["api_key"] = "***REDACTED***"
+    
+    return trace_data
+
+mcp = FastMCP("My MCP Server")
+
+# Initialize with identify and redact functions
+trace_middleware = TraceMiddleware(
+    adapter=ConsoleAdapter(),
+    identifyUser=identify_user,
+    redact=redact_pii
+).init(mcp)
+
+@mcp.tool()
+def hello(name: str) -> str:
+    return f"Hello, {name}!"
+
+if __name__ == "__main__":
+    mcp.run(transport="streamable-http")
 ```
 
 ---
@@ -94,27 +174,35 @@ Send traces to [Contexa](https://contexaai.com/) for cloud-based trace storage a
 You can provide your API key and server ID as environment variables or directly as arguments.
 
 ```python
-from mcp_trace.middleware import TraceMiddleware
-from mcp_trace.adapters.contexaai_adapter import ContexaTraceAdapter
+from mcp.server import FastMCP
+from mcp_trace import TraceMiddleware, ContexaAdapter
+
+mcp = FastMCP("My MCP Server")
 
 # Option 1: Set environment variables
 # import os
 # os.environ["CONTEXA_API_KEY"] = "your-api-key"
 # os.environ["CONTEXA_SERVER_ID"] = "your-server-id"
-# contexa_adapter = ContexaTraceAdapter()
+# contexa_adapter = ContexaAdapter()
 
 # Option 2: Pass directly
-contexa_adapter = ContexaTraceAdapter(
+contexa_adapter = ContexaAdapter(
     api_key="your-api-key",
     server_id="your-server-id"
 )
 
-trace_middleware = TraceMiddleware(adapter=contexa_adapter)
-mcp.add_middleware(trace_middleware)
+trace_middleware = TraceMiddleware(adapter=contexa_adapter).init(mcp)
+
+@mcp.tool()
+def hello(name: str) -> str:
+    return f"Hello, {name}!"
 
 # On shutdown, ensure all events are sent:
-contexa_adapter.flush(timeout=5)
-contexa_adapter.shutdown()
+# contexa_adapter.flush(timeout=5)
+# contexa_adapter.shutdown()
+
+if __name__ == "__main__":
+    mcp.run(transport="streamable-http")
 ```
 
 ### File Adapter
@@ -122,8 +210,8 @@ contexa_adapter.shutdown()
 Logs each trace as a JSON line to a file.
 
 ```python
-from mcp_trace.adapters.file_adapter import FileTraceAdapter
-trace_adapter = FileTraceAdapter("trace.log")
+from mcp_trace import FileAdapter
+trace_adapter = FileAdapter("trace.log")
 ```
 
 ### Console Adapter
@@ -131,8 +219,8 @@ trace_adapter = FileTraceAdapter("trace.log")
 Prints each trace to the console in a colorized, readable format.
 
 ```python
-from mcp_trace.adapters.console_adapter import ConsoleTraceAdapter
-trace_adapter = ConsoleTraceAdapter()
+from mcp_trace import ConsoleAdapter
+trace_adapter = ConsoleAdapter()
 ```
 
 ### PostgreSQL Adapter
@@ -153,8 +241,20 @@ CREATE TABLE mcp_traces (
 **Usage:**
 
 ```python
-from mcp_trace.adapters.postgres_adapter import PostgresTraceAdapter
-psql_adapter = PostgresTraceAdapter(dsn="postgresql://user:pass@host:port/dbname")
+from mcp.server import FastMCP
+from mcp_trace import TraceMiddleware, PostgresAdapter
+
+mcp = FastMCP("My MCP Server")
+
+psql_adapter = PostgresAdapter(dsn="postgresql://user:pass@host:port/dbname")
+trace_middleware = TraceMiddleware(adapter=psql_adapter).init(mcp)
+
+@mcp.tool()
+def hello(name: str) -> str:
+    return f"Hello, {name}!"
+
+if __name__ == "__main__":
+    mcp.run(transport="streamable-http")
 ```
 
 ### Supabase Adapter
@@ -172,10 +272,22 @@ pip install supabase
 **Usage:**
 
 ```python
+from mcp.server import FastMCP
 from supabase import create_client
-from mcp_trace.adapters.supabase_adapter import SupabasePostgresTraceAdapter
+from mcp_trace import TraceMiddleware, SupabaseAdapter
+
+mcp = FastMCP("My MCP Server")
+
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-supabase_adapter = SupabasePostgresTraceAdapter(supabase)
+supabase_adapter = SupabaseAdapter(supabase)
+trace_middleware = TraceMiddleware(adapter=supabase_adapter).init(mcp)
+
+@mcp.tool()
+def hello(name: str) -> str:
+    return f"Hello, {name}!"
+
+if __name__ == "__main__":
+    mcp.run(transport="streamable-http")
 ```
 
 ### Multi-Adapter Example
@@ -183,6 +295,10 @@ supabase_adapter = SupabasePostgresTraceAdapter(supabase)
 Send traces to multiple backends at once:
 
 ```python
+from mcp.server import FastMCP
+from mcp_trace import TraceMiddleware, FileAdapter, PostgresAdapter, SupabaseAdapter, ConsoleAdapter
+from supabase import create_client
+
 class MultiAdapter:
     def __init__(self, *adapters):
         self.adapters = adapters
@@ -190,50 +306,113 @@ class MultiAdapter:
         for adapter in self.adapters:
             adapter.export(trace_data)
 
-file_adapter = FileTraceAdapter("trace.log")
-psql_adapter = PostgresTraceAdapter(dsn="postgresql://user:pass@host:port/dbname")
-supabase_adapter = SupabasePostgresTraceAdapter(supabase)
-console_adapter = ConsoleTraceAdapter()
-trace_middleware = TraceMiddleware(adapter=MultiAdapter(file_adapter, psql_adapter, supabase_adapter, console_adapter))
-mcp.add_middleware(trace_middleware)
+mcp = FastMCP("My MCP Server")
+
+file_adapter = FileAdapter("trace.log")
+psql_adapter = PostgresAdapter(dsn="postgresql://user:pass@host:port/dbname")
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+supabase_adapter = SupabaseAdapter(supabase)
+console_adapter = ConsoleAdapter()
+
+trace_middleware = TraceMiddleware(
+    adapter=MultiAdapter(file_adapter, psql_adapter, supabase_adapter, console_adapter)
+).init(mcp)
+
+@mcp.tool()
+def hello(name: str) -> str:
+    return f"Hello, {name}!"
+
+if __name__ == "__main__":
+    mcp.run(transport="streamable-http")
 ```
 
 ---
 
-## Configurable Logging
+## Advanced Features
 
-Control exactly which fields are logged by passing a `log_fields` dictionary to `TraceMiddleware`. By default, all fields are logged unless set to `False`.
+### User Identification
 
-**Available fields:**
-
-- `type`, `method`, `timestamp`, `session_id`, `client_id`, `client_version`, `duration`
-- `entity_name`, `entity_params`, `entity_response`, `tool_response`, `error`
-
-**Example: Only log entity name and response, hide params and client ID:**
+The middleware supports identifying users from request context. Pass an `identifyUser` function that extracts user information:
 
 ```python
+def identify_user(context) -> dict:
+    """Extract user info from context. Can be sync or async."""
+    # Example: Extract from headers
+    try:
+        request_context = getattr(context, "request_context", None)
+        if request_context:
+            request = getattr(request_context, "request", None)
+            if request:
+                headers = getattr(request, "headers", {}) or {}
+                headers_lower = {k.lower(): v for k, v in headers.items()}
+                
+                user_id = headers_lower.get("x-user-id")
+                if user_id:
+                    return {
+                        "user_id": user_id,
+                        "user_name": headers_lower.get("x-user-name"),
+                        "user_email": headers_lower.get("x-user-email"),
+                    }
+    except Exception:
+        pass
+    return None
+
 trace_middleware = TraceMiddleware(
-    adapter=trace_adapter,
-    log_fields={
-        "entity_name": True,
-        "entity_response": True,
-        "entity_params": False,  # disables tool arguments
-        "client_id": False,      # disables client_id
-        # ...add more as needed
-    }
-)
-mcp.add_middleware(trace_middleware)
+    adapter=ConsoleAdapter(),
+    identifyUser=identify_user
+).init(mcp)
 ```
+
+### PII Redaction
+
+Protect sensitive data by providing a `redact` function that processes trace data before export:
+
+```python
+def redact_pii(trace_data: dict) -> dict:
+    """Redact PII from trace data before exporting."""
+    # Redact user email
+    if "user_email" in trace_data:
+        trace_data["user_email"] = "***REDACTED***"
+    
+    # Redact sensitive request fields
+    if "request" in trace_data and isinstance(trace_data["request"], dict):
+        if "password" in trace_data["request"]:
+            trace_data["request"]["password"] = "***REDACTED***"
+        if "api_key" in trace_data["request"]:
+            trace_data["request"]["api_key"] = "***REDACTED***"
+    
+    return trace_data
+
+trace_middleware = TraceMiddleware(
+    adapter=ConsoleAdapter(),
+    redact=redact_pii
+).init(mcp)
+```
+
+### Trace Data Fields
+
+The middleware captures comprehensive trace data including:
+
+- **Request info**: `type`, `method`, `timestamp`, `duration`, `session_id`
+- **User info**: `user_id`, `user_name`, `user_email` (if `identifyUser` is provided)
+- **Client info**: `client_id`, `client_name`, `client_version`
+- **Request details**: `request` (with query_params, path_params, url, method)
+- **Response data**: `response` (structured or text content)
+- **Error info**: `is_error`, `error`
+- **Network info**: `ip_address` (from X-Forwarded-For or X-Real-IP headers)
+- **Entity info**: `entity_name` (tool/resource/prompt name)
+- **Metadata**: Custom metadata dictionary
 
 ---
 
 ## Requirements
 
 - Python 3.8+
-- [fastmcp](https://github.com/jlowin/fastmcp)
-- [psycopg2-binary](https://pypi.org/project/psycopg2-binary/) (for PostgreSQL)
-- [supabase-py](https://github.com/supabase-community/supabase-py) (for Supabase)
-- [requests](https://pypi.org/project/requests/), [pydantic](https://pypi.org/project/pydantic/)
+- [mcp](https://github.com/modelcontextprotocol/python-sdk) (with CLI support: `mcp[cli]`)
+- [psycopg2-binary](https://pypi.org/project/psycopg2-binary/) (for PostgreSQL adapter)
+- [supabase](https://github.com/supabase-community/supabase-py) (for Supabase adapter)
+- [requests](https://pypi.org/project/requests/) (for Contexa adapter)
+- [pydantic](https://pypi.org/project/pydantic/)
 
 ---
 
@@ -251,4 +430,5 @@ We love contributions! Please open issues for bugs or feature requests, and subm
 
 ## Links & Acknowledgements
 
-- [FastMCP](https://github.com/jlowin/fastmcp) — Model Context Protocol server
+- [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) — Model Context Protocol Python SDK
+- [FastMCP](https://github.com/jlowin/fastmcp) — FastMCP server framework
