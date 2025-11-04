@@ -9,15 +9,15 @@ description = "Tracing middleware for FastMCP with pluggable adapters (local fil
 readme = "README.md"
 requires-python = ">=3.8"
 authors = [
-    { name = "Your Name", email = "your@email.com" }
+    { name = "Akshay Galande", email = "mybytecode@gmail.com" }
 ]
 license = { file = "LICENSE" }
 dependencies = [
     "psycopg2-binary",
     "requests",
     "pydantic",
-    "fastmcp",
-    "supabase"
+    "supabase",
+    "mcp[cli]"
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -28,5 +28,9 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules"
 ]
 
+[tool.setuptools]
+package-dir = {"" = "src"}
+
 [tool.setuptools.packages.find]
-include = ["mcp_trace*"] 
+where = ["src"]
+include = ["mcp_trace*"]
