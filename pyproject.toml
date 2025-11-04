@@ -5,13 +5,29 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mcp-trace"
 version = "0.1.6"
-description = "Tracing middleware for FastMCP with pluggable adapters (local file, PostgreSQL, OpenTelemetry, etc)."
+description = "Open-source tracing middleware for MCP servers. Export logs, requests, and tool calls to files, PostgreSQL, Supabase, Contexa, or custom backends with full control over what gets logged."
 readme = "README.md"
 requires-python = ">=3.8"
 authors = [
     { name = "Akshay Galande", email = "mybytecode@gmail.com" }
 ]
+maintainers = [
+    { name = "Akshay Galande", email = "mybytecode@gmail.com" }
+]
 license = { file = "LICENSE" }
+keywords = [
+    "mcp",
+    "model-context-protocol",
+    "tracing",
+    "logging",
+    "fastmcp",
+    "middleware",
+    "observability",
+    "monitoring",
+    "postgresql",
+    "supabase",
+    "contexa"
+]
 dependencies = [
     "psycopg2-binary",
     "requests",
@@ -20,13 +36,51 @@ dependencies = [
     "mcp[cli]"
 ]
 classifiers = [
-    "Programming Language :: Python :: 3",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
-    "Development Status :: 3 - Alpha",
-    "Intended Audience :: Developers",
-    "Topic :: Software Development :: Libraries :: Python Modules"
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Logging",
+    "Topic :: System :: Monitoring",
 ]
+
+[project.optional-dependencies]
+# Optional dependencies for specific features
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+postgres = [
+    "psycopg2-binary>=2.9.0",
+]
+all = [
+    "psycopg2-binary>=2.9.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/contexaAI/mcp-trace"
+Documentation = "https://github.com/contexaAI/mcp-trace#readme"
+Repository = "https://github.com/contexaAI/mcp-trace.git"
+Issues = "https://github.com/contexaAI/mcp-trace/issues"
+Changelog = "https://github.com/contexaAI/mcp-trace/releases"
+"Bug Tracker" = "https://github.com/contexaAI/mcp-trace/issues"
+"Source Code" = "https://github.com/contexaAI/mcp-trace"
+"Discussions" = "https://github.com/contexaAI/mcp-trace/discussions"
+"Funding" = "https://github.com/sponsors/contexaAI"
+"Twitter" = "https://twitter.com/contexaAI"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
