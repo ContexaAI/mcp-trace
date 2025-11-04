@@ -35,6 +35,15 @@ jobs:
       - name: Check package
         run: twine check dist/*
 
+      - name: Verify PyPI credentials
+        run: |
+          if [ -z "${{ secrets.PYPI_API_TOKEN }}" ]; then
+            echo "❌ Error: PYPI_API_TOKEN secret is not set!"
+            echo "Please add it in: Repository Settings → Secrets and variables → Actions"
+            exit 1
+          fi
+          echo "✅ PyPI API token is configured"
+
       - name: Publish to PyPI
         env:
           TWINE_USERNAME: __token__
