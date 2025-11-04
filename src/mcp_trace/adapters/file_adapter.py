@@ -1,7 +1,7 @@
 from .base import TraceAdapter
 import json
 
-class FileTraceAdapter(TraceAdapter):
+class FileAdapter(TraceAdapter):
     def __init__(self, filename: str):
         self.filename = filename
 

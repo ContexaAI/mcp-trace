@@ -7,7 +7,7 @@ from typing import Optional, Dict
 from .base import TraceAdapter
 
 
-class ContexaTraceAdapter(TraceAdapter):
+class ContexaAdapter(TraceAdapter):
     """
     Trace adapter that buffers and sends trace data to Contexa in a background thread.
     Endpoint: https://api.contexaai.com/v1/trace/ingest
