@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcp-trace"
-version = "0.1.6"
+version = "0.1.7"
 description = "Open-source tracing middleware for MCP servers. Export logs, requests, and tool calls to files, PostgreSQL, Supabase, Contexa, or custom backends with full control over what gets logged."
 readme = "README.md"
 requires-python = ">=3.8"
